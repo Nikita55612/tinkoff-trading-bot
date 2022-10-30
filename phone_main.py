@@ -32,6 +32,46 @@ class Tools:
             str(abs(units)) + "." + (str(abs(nano)) if len(str(abs(nano))) == 9 else "0" + str(abs(nano)))
         )
 
+    @staticmethod
+    def adding_missing_elements(old_list: list, new_list: list):
+        n = 0
+        for i in new_list:
+
+            if i not in old_list:
+                print(n)
+                old_list.append(i)
+                n += 1
+        return old_list
+
+    @staticmethod
+    def adding_missing_elements_for_classes(old_class_list: list[super], new_class_list: list[super]):
+        n = 0
+        for n, i in enumerate([c.__dict__ for c in new_class_list]):
+            if i not in [c.__dict__ for c in old_class_list]:
+                print(n)
+                old_class_list.append(new_class_list[n])
+                n += 1
+        return old_class_list
+
+    @staticmethod
+    def start_timer(stop_timer: str):
+        day, hour, minute = [int(i) for i in stop_timer.split(":")]
+        print("\nОжидание...")
+        timer = True
+        while timer:
+            datetime_now = datetime.now()
+            if datetime_now.day == day:
+                if datetime_now.hour == hour:
+                    if datetime_now.minute == minute:
+                        print("\nTimer stopped")
+                        timer = False
+                    else:
+                        time.sleep(1)
+                else:
+                    time.sleep(59)
+            else:
+                time.sleep(59)
+
 
 class SmoothingMethods:
     """Класс методов сглаживания числовых последовательностей"""
@@ -71,6 +111,9 @@ class SmoothingMethods:
     def ema_smoothing_plus_one(ema_last_value: float, new_value: float, ema_last_period: int, w=1.0):
         alpha = w / (ema_last_period + (w - 1))
         return alpha * new_value + (1 - alpha) * ema_last_value
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class TOKENS:
@@ -167,6 +210,9 @@ class SettingsHandler:
             finish_input = input("\nНажмите Enter для выхода из режима изменения настроек "
                                  "(любую кнопку чтобы продолжить):")
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class Settings:
     """Класс запроса на получение настроек"""
@@ -192,6 +238,23 @@ class Settings:
                 return SettingsHandler(
                     tuple([rl.rstrip().split('=')[1].replace(" ", "") for rl in filehandle.readlines()])
                 )
+
+
+class CandleArguments:
+    """Класс определения аргументов свечи"""
+
+    def __init__(self, open_, high_, low_, close_, volume_, time_: datetime, type_=None, interval_=None):
+        self.open = open_
+        self.high = high_
+        self.low = low_
+        self.close = close_
+        self.volume = volume_
+        self.time = time_
+        self.type = type_ if type_ else "None"
+        self.interval = interval_ if interval_ else "None"
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class Indicators:
@@ -220,6 +283,9 @@ class Indicators:
         def get_only_di_minus_list(self):
             return self.di_plus_and_minus_list[1]
 
+        def __str__(self):
+            return self.__dict__
+
     class ChandelierExitArguments:
         """Класс определения аргументов chandelier exit индикатора"""
 
@@ -239,7 +305,10 @@ class Indicators:
         def get_only_ce_short_list(self):
             return self.CE_long_and_short_list[1]
 
-    def __init__(self, candles: list):
+        def __str__(self):
+            return self.__dict__
+
+    def __init__(self, candles: list[CandleArguments]):
         self.candle_info = CandlesInfo(candles)
         self.candles = candles
         self.len_candles = len(self.candles)
@@ -418,6 +487,9 @@ class Indicators:
         self.return_ema = previous_ema_list if out == 0 else previous_ema_list[-1]
         return self.return_ema
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class InstrumentArguments:
     """Класс определения аргументов инструмента торговли"""
@@ -468,19 +540,8 @@ class InstrumentArguments:
              for lp in client_.market_data.get_last_prices(figi=[figi if figi else self.figi]).last_prices][-1]
         )
 
-
-class CandleArguments:
-    """Класс определения аргументов свечи"""
-
-    def __init__(self, open_, high_, low_, close_, volume_, time_, type_=None, interval_=None):
-        self.open = open_
-        self.high = high_
-        self.low = low_
-        self.close = close_
-        self.volume = volume_
-        self.time = time_
-        self.type = type_ if type_ else "None"
-        self.interval = interval_ if interval_ else "None"
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class CandleType:
@@ -489,9 +550,6 @@ class CandleType:
     HeikinAshiCandles = "ha"
     ClassicCandlesValue = 1
     HeikinAshiCandlesValue = 2
-
-    def __init__(self, candle_type):
-        self.candle_type = candle_type
 
 
 class CandleHandler:
@@ -504,11 +562,7 @@ class CandleHandler:
             low_=Tools.compound(candle.low.units, candle.low.nano),
             close_=Tools.compound(candle.close.units, candle.close.nano),
             volume_=Tools.compound(candle.close.units, candle.close.nano),
-            time_=(candle.time.month,
-                   candle.time.day,
-                   candle.time.hour,
-                   candle.time.minute,
-                   candle.time.second),
+            time_=candle.time,
             type_=CandleType.ClassicCandles,
         )
         self.candle_type = CandleType.ClassicCandles
@@ -545,11 +599,14 @@ class CandleHandler:
         )
         return self.candle
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class CandlesInfo:
     """Класс получения информации о свечах"""
 
-    def __init__(self, candles: list):
+    def __init__(self, candles: list[CandleArguments]):
         self.candles = candles
         self.candles_quantity = len(candles)
         self.candle_interval = candles[-1].interval
@@ -570,6 +627,9 @@ class CandlesInfo:
         self.previous_close_candle = candles[-2].close
         self.previous_4ohlc_candle = round((self.previous_open_candle + self.previous_high_candle +
                                             self.previous_low_candle + self.previous_close_candle) / 4, 2)
+
+    def get_only_weekdays_candles(self):
+        return [i for i in self.candles if datetime.isoweekday(i.time) not in (6, 7)]
 
     def get_only_open_candles(self):
         return [i.open for i in self.candles]
@@ -626,6 +686,9 @@ class CandlesInfo:
         di_plus_, di_minus_ = Indicators(self.candles).adx(period, w).di_plus_and_minus_list
         return "positive" if di_plus_[-1] >= di_minus_[-1] else "negative"
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class FindInstrument:
     """Класс поиска инструмента торговли"""
@@ -655,12 +718,10 @@ class FindInstrument:
                     with open("last_find_instrument.txt", "r") as file:
                         find_instruments_input = file.read().replace(" ", "")
             if find_instruments_input == "*":
-                numb_instrument = 0
                 favorite_instruments = client_.instruments.get_favorites().favorite_instruments
-                for instrument in favorite_instruments:
-                    print(f"{numb_instrument}. Ticker: {instrument.ticker.upper()}, "
+                for i, instrument in enumerate(favorite_instruments):
+                    print(f"{i}. Ticker: {instrument.ticker.upper()}, "
                           f"Type: {instrument.instrument_type.upper()}, Flag: {instrument.api_trade_available_flag}")
-                    numb_instrument += 1
                 continue
             try:
                 find_instruments = client_.instruments.find_instrument(query=find_instruments_input)
@@ -693,16 +754,19 @@ class GetHistoricalCandles:
         self.figi = figi
         self.days = days
 
-    def get_classic_last_historical_candle(self, candle_interval: CandleInterval, from_minutes: int = 6):
-        return [CandleHandler(
+    def get_classic_last_historical_candle(
+            self, candle_interval: CandleInterval, from_minutes: int = 6, out: str = "last"
+    ):
+        candles = [CandleHandler(
             candle, self.candle_interval_options[candle_interval.value]
         ).candle for candle in self.Client.get_all_candles(
             figi=self.figi,
             from_=datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(minutes=from_minutes),
             interval=candle_interval
-        )][-1]
+        )]
+        return candles[-1] if out == "last" else candles
 
-    def get_ha_last_historical_candle(self, candle_interval: CandleInterval, from_minutes: int = 6):
+    def get_ha_last_historical_candle(self, candle_interval: CandleInterval, from_minutes: int = 6, out: str = "last"):
         historical_candles = []
         for candle in self.Client.get_all_candles(
                 figi=self.figi,
@@ -712,7 +776,7 @@ class GetHistoricalCandles:
             historical_candles.append(CandleHandler(
                 candle, self.candle_interval_options[candle_interval.value]).ha_candle_handler(
                 historical_candles[-1] if len(historical_candles) > 0 else None))
-        return historical_candles[-1]
+        return historical_candles[-1] if out == "last" else historical_candles
 
     def get_classic_historical_candles(self, candle_interval: CandleInterval):
         return [CandleHandler(
@@ -734,6 +798,19 @@ class GetHistoricalCandles:
                 candle, self.candle_interval_options[candle_interval.value]).ha_candle_handler(
                 historical_candles[-1] if len(historical_candles) > 0 else None))
         return historical_candles
+
+    def get_classic_and_ha_historical_candles(self, candle_interval: CandleInterval):
+        candle_request = self.Client.get_all_candles(
+            figi=self.figi, from_=datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(days=self.days),
+            interval=candle_interval)
+        ha_historical_candles, cl_historical_candles = [], []
+        for candle in candle_request:
+            cl_historical_candles.append(CandleHandler(
+                candle, self.candle_interval_options[candle_interval.value]).candle)
+            ha_historical_candles.append(CandleHandler(
+                candle, self.candle_interval_options[candle_interval.value]).ha_candle_handler(
+                ha_historical_candles[-1] if len(ha_historical_candles) > 0 else None))
+        return cl_historical_candles, ha_historical_candles
 
     def get_classic_1day_historical_candles(self):
         return self.get_classic_historical_candles(CandleInterval.CANDLE_INTERVAL_DAY)
@@ -783,6 +860,9 @@ class PositionHandler:
         self.total_price_quantity = round(self.expected_yield * self.quantity, 2)
         self.blocked = position.blocked
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class OperationHandler:
     """Класс обработки информации об операциях"""
@@ -810,6 +890,9 @@ class OperationHandler:
         self.instrument_type = operation.instrument_type.upper()
         self.trad_type = operation.type
         self.date = (operation.date.year, operation.date.month, operation.date.day, operation.date.hour,)
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class ClientInfo:
@@ -991,6 +1074,9 @@ class ClientInfo:
             round(commission["USD"], 2), round(commission["RUB"], 2), round(commission["other"], 2)
         return commission
 
+    def __str__(self):
+        return str(self.__dict__)
+
 
 class TradingDirectionArguments:
     """Класс определения аргументов о направление торговой операции"""
@@ -1006,6 +1092,9 @@ class TradingDirectionArguments:
         self.stock_quantity = stock_quantity
         self.deals_quantity = deals_quantity
         self.transaction_time = transaction_time
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class TradingInfo:
@@ -1064,6 +1153,9 @@ class TradingInfo:
             self.indicators.return_chandelier_exit else "None"
         self.last_adx = round(self.indicators.return_adx.last_adx, 2) if self.indicators.return_adx else "None"
         self.last_ema = round(self.indicators.return_ema[-1], 2) if self.indicators.return_ema else "None"
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class PrintInfo:
@@ -1353,9 +1445,15 @@ class PrintInfo:
 
     @staticmethod
     def print_before_starting_the_main_loop(settings: SettingsHandler):
-        if input("'*' вызов функции для изменения настроек\n"
-                 "Нажмите Enter для запуска основного цикла:") == "*":
+        inp = input("'*' вызов функции для изменения настроек\n"
+                    "'-' выставить таймер запуска основного цикла\n"
+                    "Нажмите Enter для запуска основного цикла:")
+        if inp == "*":
             settings.change_settings()
+            PrintInfo.print_before_starting_the_main_loop(settings)
+        elif inp == "-":
+            Tools.start_timer(input("\nВыставите время остановки таймера в формате ( day:hour:min ):\n"
+                                    "Ввод:"))
         print()
 
 
@@ -1386,6 +1484,181 @@ class Strategies:
     def strategy_pass():
         pass
 
+    def __str__(self):
+        return str(self.__dict__)
+
+
+class StrategiesAnalytics:
+    class ResultStrategiesAnalytics:
+        class ListCellArg:
+            def __init__(self, number: int, signal: int, value: float):
+                self.number = number
+                self.signal = signal
+                self.value = value
+
+            def __str__(self):
+                return str(self.__dict__)
+
+        class DealDataAnalysis:
+            def __init__(
+                    self,
+                    deals_quantity: int,
+                    profit_list: list[float],
+                    profit_percentage_list: list[float],
+                    numb_of_range_values_list: list[int],
+                    max_up_percentage_list: list[float],
+                    max_down_percentage_list: list[float],
+                    profit_percentage_given_average_list: list[float],
+                    average_percentage_list: list[float],
+                    percentage_of_tr_list: list[float]
+            ):
+                self.average_profit_per_trade = round(sum(profit_list) / len(profit_list), 2)
+                self.percent_of_profit_trades = round(len([i for i in profit_list if i > 0]) / deals_quantity * 100, 2)
+                self.percent_of_profit_trades_given_the_range = round(
+                    len([i for i in profit_percentage_given_average_list if i > 0]) / deals_quantity * 100, 2)
+                self.average_profit_per_trade_percentage = round(
+                    sum(profit_percentage_list) / len(profit_percentage_list), 2)
+                self.average_numb_of_values_in_range = round(
+                    sum(numb_of_range_values_list) / len(numb_of_range_values_list))
+                self.average_max_up_percentage = round(sum(max_up_percentage_list) / len(max_up_percentage_list), 2)
+                self.average_max_down_percentage = round(sum(max_down_percentage_list) / len(max_down_percentage_list),
+                                                         2)
+                maximum_height = round(max(max_up_percentage_list), 2)
+                maximum_drawdown = round(min(max_down_percentage_list), 2)
+                self.maximum_height = maximum_height if maximum_height != 0.0 else round(min(max_up_percentage_list), 2)
+                self.maximum_drawdown = maximum_drawdown if maximum_drawdown != 0.0 \
+                    else round(max(max_down_percentage_list), 2)
+                self.average_percent_variability = round(sum(average_percentage_list) / len(average_percentage_list), 2)
+                self.atr_percentage = round(sum(percentage_of_tr_list) / len(percentage_of_tr_list), 2)
+                self.risk_index = round(
+                    100 - ((self.percent_of_profit_trades * 2) + self.percent_of_profit_trades_given_the_range) / 3, 2)
+                self.normalized_stop_loss_percent_level = round(
+                    ((self.average_max_down_percentage * 4) + self.maximum_drawdown) / 5, 2)
+                self.normalized_take_profit_percent_level = round(
+                    ((self.average_max_up_percentage * 4) + self.maximum_height) / 5, 2)
+
+            def __str__(self):
+                return str(self.__dict__)
+
+        def __init__(self, signal_list: list[int], value_list: list[float]):
+            print(len(signal_list), len(value_list))
+            iter_numb, single_list, long_deals, short_deals = 0, [], [], []
+            for signal, value in zip(signal_list, value_list):
+                single_list.append(StrategiesAnalytics.ResultStrategiesAnalytics.ListCellArg(iter_numb, signal, value))
+                if signal == 1:
+                    long_deals.append(single_list[-1])
+                elif signal == -1:
+                    short_deals.append(single_list[-1])
+                iter_numb += 1
+            self.long_deals_quantity = len(long_deals)
+            self.short_deals_quantity = len(short_deals)
+            self.amount_of_deals = len(long_deals) + len(short_deals)
+            pair_for_long = (long_deals, short_deals) if long_deals[0].number <= short_deals[0].number \
+                else (long_deals, short_deals[1:])
+            pair_for_short = (short_deals, long_deals) if short_deals[0].number <= long_deals[0].number \
+                else (short_deals, long_deals[1:])
+            long_profit_list, short_profit_list = [], []
+            long_profit_percentage_list, short_profit_percentage_list = [], []
+            long_profit_percentage_given_average_list, short_profit_percentage_given_average_list = [], []
+            long_numb_of_range_values_list, short_numb_of_range_values_list = [], []
+            long_max_up_percentage_list, long_max_down_percentage_list = [], []
+            short_max_up_percentage_list, short_max_down_percentage_list = [], []
+            long_average_percentage_list, short_average_percentage_list = [], []
+            long_percentage_of_tr_list, short_percentage_of_tr_list = [], []
+            for long_deal, short_deal in zip(*pair_for_long):
+                long_slice = single_list[long_deal.number:short_deal.number + 1]
+                long_profit_list.append(long_slice[-1].value - long_slice[0].value)
+                long_profit_percentage_list.append(long_profit_list[-1] / long_slice[0].value * 100)
+                long_numb_of_range_values_list.append(len(long_slice))
+                long_slice_value = [i.value for i in long_slice]
+                max_range_value, min_range_value = max(long_slice_value), min(long_slice_value)
+                long_max_up_percentage_list.append(100 - (long_slice[0].value / max_range_value * 100))
+                long_max_down_percentage_list.append(100 - (long_slice[0].value / min_range_value * 100))
+                average_values_range = sum(long_slice_value) / long_numb_of_range_values_list[-1]
+                long_average_percentage_list.append(100 - (long_slice[0].value / average_values_range * 100))
+                long_profit_percentage_given_average_list.append(
+                    (long_average_percentage_list[-1] + (long_profit_percentage_list[-1] * 2)) / 3)
+                try:
+                    long_percentage_of_tr_list.append((max_range_value - min_range_value) / long_slice[0].value * 100)
+                except ZeroDivisionError:
+                    long_percentage_of_tr_list.append(0.0)
+            for short_deal, long_deal in zip(*pair_for_short):
+                short_slice = single_list[short_deal.number:long_deal.number + 1]
+                short_profit_list.append(short_slice[0].value - short_slice[-1].value)
+                short_profit_percentage_list.append(short_profit_list[-1] / short_slice[0].value * 100)
+                short_numb_of_range_values_list.append(len(short_slice))
+                short_slice_value = [i.value for i in short_slice]
+                max_range_value, min_range_value = max(short_slice_value), min(short_slice_value)
+                short_max_up_percentage_list.append(100 - (short_slice[0].value / min_range_value * 100))
+                short_max_down_percentage_list.append(100 - (short_slice[0].value / max_range_value * 100))
+                average_values_range = sum(short_slice_value) / short_numb_of_range_values_list[-1]
+                short_average_percentage_list.append(100 - (short_slice[0].value / average_values_range * 100))
+                short_profit_percentage_given_average_list.append(
+                    (short_average_percentage_list[-1] + (short_profit_percentage_list[-1] * 2)) / 3)
+                try:
+                    short_percentage_of_tr_list.append((max_range_value - min_range_value) / short_slice[0].value * 100)
+                except ZeroDivisionError:
+                    short_percentage_of_tr_list.append(0.0)
+            self.long_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
+                self.long_deals_quantity, long_profit_list, long_profit_percentage_list, long_numb_of_range_values_list,
+                long_max_up_percentage_list, long_max_down_percentage_list, long_profit_percentage_given_average_list,
+                long_average_percentage_list, long_percentage_of_tr_list
+            )
+            self.short_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
+                self.short_deals_quantity, short_profit_list, short_profit_percentage_list,
+                short_numb_of_range_values_list,
+                short_max_up_percentage_list, short_max_down_percentage_list,
+                short_profit_percentage_given_average_list,
+                short_average_percentage_list, short_percentage_of_tr_list
+            )
+            self.recommended_trading_direction = "long" \
+                if (self.long_deals_analytic.risk_index + (100 - self.long_deals_analytic.percent_of_profit_trades)) < (
+                    self.short_deals_analytic.risk_index + (100 - self.short_deals_analytic.percent_of_profit_trades)) \
+                else "short"
+
+        def __str__(self):
+            return str(self.__dict__)
+
+    def __init__(self, indicators: Indicators):
+        self.indicators = indicators
+
+    def strategies_analytics(
+            self, strategy_name: str, analytics_strategy_on_classic_candles: list[CandleArguments] = None
+    ):
+        signal_indicator, signal_indicator_list = 0, []
+        close_candle_list = self.indicators.candle_info.get_only_close_candles()
+        if strategy_name == "chandelier_exit_strategy":
+            ce_long_and_short_list = self.indicators.return_chandelier_exit.CE_long_and_short_list
+            close_candle_list = close_candle_list[len(close_candle_list) - len(ce_long_and_short_list[0]):]
+            for n in range(0, len(close_candle_list)):
+                prev_numb = n - 1 if n > 0 else n
+                signal_indicator = StrategiesAnalytics.chandelier_exit_strategy(
+                    signal_indicator, (close_candle_list[n], close_candle_list[prev_numb]),
+                    (ce_long_and_short_list[0][n], ce_long_and_short_list[1][n]),
+                    (ce_long_and_short_list[0][prev_numb], ce_long_and_short_list[1][prev_numb])
+                )
+                signal_indicator_list.append(signal_indicator)
+            close_classic_candle_list = CandlesInfo(
+                analytics_strategy_on_classic_candles
+            ).get_only_close_candles() if analytics_strategy_on_classic_candles else None
+            return StrategiesAnalytics.ResultStrategiesAnalytics(
+                signal_indicator_list, close_classic_candle_list[
+                                       len(close_classic_candle_list) - len(ce_long_and_short_list[0]):
+                                       ] if close_classic_candle_list else close_candle_list)
+
+    @staticmethod
+    def chandelier_exit_strategy(
+            signal_indicator, last_and_prev_close: tuple[float],
+            ce_long_and_short: tuple[float], previous_ce_long_and_short: tuple[float]
+    ):
+        if last_and_prev_close[0] > ce_long_and_short[1] and last_and_prev_close[1] < previous_ce_long_and_short[1]:
+            signal_indicator = signal_indicator + 1 if signal_indicator > -1 else 1
+        elif last_and_prev_close[0] < ce_long_and_short[0] and last_and_prev_close[1] > previous_ce_long_and_short[0]:
+            signal_indicator = signal_indicator - 1 if signal_indicator < 1 else -1
+        else:
+            signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
+        return signal_indicator
+
 
 class MarketDataHandler:
     """Класс обработки стрим запроса"""
@@ -1399,6 +1672,9 @@ class MarketDataHandler:
         self.last_price = Tools.compound(market_data.last_price.price.units, market_data.last_price.price.nano) \
             if market_data.last_price else None
         self.candle = CandleHandler(market_data.candle) if market_data.candle else None
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class MainServices:
@@ -1423,16 +1699,18 @@ class MainServices:
 
     def get_historical_candles(self, figi: str, days: int, candle_interval: CandleInterval, candle_type):
         historical_candles = GetHistoricalCandles(self.Client, figi, days)
+        if candle_type == "oll":
+            return historical_candles.get_classic_and_ha_historical_candles(candle_interval)
         return historical_candles.get_ha_historical_candles(candle_interval) if candle_type in [2, "ha"] else \
             historical_candles.get_classic_historical_candles(candle_interval)
 
     def get_last_historical_candle(
-            self, figi: str, candle_interval: CandleInterval, candle_type, from_minutes: int = 6
+            self, figi: str, candle_interval: CandleInterval, candle_type, from_minutes: int = 30, out: str = "last"
     ):
         last_historical_candles = GetHistoricalCandles(self.Client, figi, 0)
-        return last_historical_candles.get_ha_last_historical_candle(candle_interval, from_minutes) if \
+        return last_historical_candles.get_ha_last_historical_candle(candle_interval, from_minutes, out) if \
             candle_type in [2, "ha"] else \
-            last_historical_candles.get_classic_last_historical_candle(candle_interval, from_minutes)
+            last_historical_candles.get_classic_last_historical_candle(candle_interval, from_minutes, out)
 
     def get_last_price(self, figi: str):
         return InstrumentArguments(figi, self.ClientInfo.instruments).get_last_price(self.Client)
@@ -1449,6 +1727,11 @@ class MainServices:
             direction=direction,
             order_type=OrderType.ORDER_TYPE_MARKET
         )
+
+    def get_chandelier_exit_strategy_analytics(
+            self, figi: str, days: int, candle_interval: CandleInterval, candle_type
+    ):
+        return
 
     @staticmethod
     def request_iterator(figi: str, subscribe_interval: SubscriptionInterval):
@@ -1648,9 +1931,8 @@ def main():
         adx = indicators.adx(S.adx_length)
         chandelier_exit = indicators.chandelier_exit(S.chandelier_exit_length, S.chandelier_exit_factor)
         ema = indicators.ema(S.ema_length)
-        last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type)
-        if candle_list_oll[-1].time != last_historical_candle.time:
-            candle_list_oll.append(last_historical_candle)
+        last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type, out="oll")
+        #  candle_list_oll = Tools.adding_missing_elements_for_classes(candle_list_oll, last_historical_candle)
         candle = candle_list_oll[-1]
         last_price = ms.get_last_price(figi)
 
