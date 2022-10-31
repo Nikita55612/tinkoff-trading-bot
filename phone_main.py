@@ -1158,6 +1158,208 @@ class TradingInfo:
         return str(self.__dict__)
 
 
+class Strategies:
+    """Класс стратегии обработки сигналов"""
+
+    def __init__(self, signal_indicator: int, indicators: Indicators):
+        self.SI = signal_indicator
+        self.indicators = indicators
+
+    def chandelier_exit_strategy(self):
+        last_close = self.indicators.candle_info.last_close_candle
+        prev_close = self.indicators.candle_info.previous_close_candle
+        ce = self.indicators.return_chandelier_exit
+        if ce:
+            if last_close > ce.last_CE_short and prev_close < ce.previous_CE_short:
+                self.SI = self.SI + 1 if self.SI > -1 else 1
+            elif last_close < ce.last_CE_long and prev_close > ce.previous_CE_long:
+                self.SI = self.SI - 1 if self.SI < 1 else -1
+            else:
+                self.SI = self.SI + 1 if self.SI > 0 else self.SI - 1
+        else:
+            print("Индикатор 'chandelier_exit' не определен")
+            return ValueError
+        return self.SI
+
+    @staticmethod
+    def strategy_pass():
+        pass
+
+    def __str__(self):
+        return str(self.__dict__)
+
+
+class StrategiesAnalytics:
+    class ResultStrategiesAnalytics:
+        class ListCellArg:
+            def __init__(self, number: int, signal: int, value: float):
+                self.number = number
+                self.signal = signal
+                self.value = value
+
+            def __str__(self):
+                return str(self.__dict__)
+
+        class DealDataAnalysis:
+            def __init__(
+                    self,
+                    deals_quantity: int,
+                    profit_list: list[float],
+                    profit_percentage_list: list[float],
+                    numb_of_range_values_list: list[int],
+                    max_up_percentage_list: list[float],
+                    max_down_percentage_list: list[float],
+                    profit_percentage_given_average_list: list[float],
+                    average_percentage_list: list[float],
+                    percentage_of_tr_list: list[float]
+            ):
+                self.average_profit_per_trade = round(sum(profit_list) / len(profit_list), 2)
+                self.percent_of_profit_trades = round(len([i for i in profit_list if i > 0]) / deals_quantity * 100, 2)
+                self.percent_of_profit_trades_given_the_range = round(
+                    len([i for i in profit_percentage_given_average_list if i > 0]) / deals_quantity * 100, 2)
+                self.average_profit_per_trade_percentage = round(
+                    sum(profit_percentage_list) / len(profit_percentage_list), 2)
+                self.average_numb_of_values_in_range = round(
+                    sum(numb_of_range_values_list) / len(numb_of_range_values_list))
+                self.average_max_up_percentage = round(sum(max_up_percentage_list) / len(max_up_percentage_list), 2)
+                self.average_max_down_percentage = round(sum(max_down_percentage_list) / len(max_down_percentage_list),
+                                                         2)
+                maximum_height = round(max(max_up_percentage_list), 2)
+                maximum_drawdown = round(min(max_down_percentage_list), 2)
+                self.maximum_height = maximum_height if maximum_height != 0.0 else round(min(max_up_percentage_list), 2)
+                self.maximum_drawdown = maximum_drawdown if maximum_drawdown != 0.0 \
+                    else round(max(max_down_percentage_list), 2)
+                self.average_percent_variability = round(sum(average_percentage_list) / len(average_percentage_list), 2)
+                self.atr_percentage = round(sum(percentage_of_tr_list) / len(percentage_of_tr_list), 2)
+                self.risk_index = round(
+                    100 - ((self.percent_of_profit_trades * 2) + self.percent_of_profit_trades_given_the_range) / 3, 2)
+                self.normalized_stop_loss_percent_level = round(
+                    ((self.average_max_down_percentage * 4) + self.maximum_drawdown) / 5, 2)
+                self.normalized_take_profit_percent_level = round(
+                    ((self.average_max_up_percentage * 4) + self.maximum_height) / 5, 2)
+
+            def __str__(self):
+                return str(self.__dict__)
+
+        def __init__(self, signal_list: list[int], value_list: list[float]):
+            iter_numb, single_list, long_deals, short_deals = 0, [], [], []
+            for signal, value in zip(signal_list, value_list):
+                single_list.append(StrategiesAnalytics.ResultStrategiesAnalytics.ListCellArg(iter_numb, signal, value))
+                if signal == 1:
+                    long_deals.append(single_list[-1])
+                elif signal == -1:
+                    short_deals.append(single_list[-1])
+                iter_numb += 1
+            self.long_deals_quantity = len(long_deals)
+            self.short_deals_quantity = len(short_deals)
+            self.amount_of_deals = len(long_deals) + len(short_deals)
+            pair_for_long = (long_deals, short_deals) if long_deals[0].number <= short_deals[0].number \
+                else (long_deals, short_deals[1:])
+            pair_for_short = (short_deals, long_deals) if short_deals[0].number <= long_deals[0].number \
+                else (short_deals, long_deals[1:])
+            long_profit_list, short_profit_list = [], []
+            long_profit_percentage_list, short_profit_percentage_list = [], []
+            long_profit_percentage_given_average_list, short_profit_percentage_given_average_list = [], []
+            long_numb_of_range_values_list, short_numb_of_range_values_list = [], []
+            long_max_up_percentage_list, long_max_down_percentage_list = [], []
+            short_max_up_percentage_list, short_max_down_percentage_list = [], []
+            long_average_percentage_list, short_average_percentage_list = [], []
+            long_percentage_of_tr_list, short_percentage_of_tr_list = [], []
+            for long_deal, short_deal in zip(*pair_for_long):
+                long_slice = single_list[long_deal.number:short_deal.number + 1]
+                long_profit_list.append(long_slice[-1].value - long_slice[0].value)
+                long_profit_percentage_list.append(long_profit_list[-1] / long_slice[0].value * 100)
+                long_numb_of_range_values_list.append(len(long_slice))
+                long_slice_value = [i.value for i in long_slice]
+                max_range_value, min_range_value = max(long_slice_value), min(long_slice_value)
+                long_max_up_percentage_list.append(100 - (long_slice[0].value / max_range_value * 100))
+                long_max_down_percentage_list.append(100 - (long_slice[0].value / min_range_value * 100))
+                average_values_range = sum(long_slice_value) / long_numb_of_range_values_list[-1]
+                long_average_percentage_list.append(100 - (long_slice[0].value / average_values_range * 100))
+                long_profit_percentage_given_average_list.append(
+                    (long_average_percentage_list[-1] + (long_profit_percentage_list[-1] * 2)) / 3)
+                try:
+                    long_percentage_of_tr_list.append((max_range_value - min_range_value) / long_slice[0].value * 100)
+                except ZeroDivisionError:
+                    long_percentage_of_tr_list.append(0.0)
+            for short_deal, long_deal in zip(*pair_for_short):
+                short_slice = single_list[short_deal.number:long_deal.number + 1]
+                short_profit_list.append(short_slice[0].value - short_slice[-1].value)
+                short_profit_percentage_list.append(short_profit_list[-1] / short_slice[0].value * 100)
+                short_numb_of_range_values_list.append(len(short_slice))
+                short_slice_value = [i.value for i in short_slice]
+                max_range_value, min_range_value = max(short_slice_value), min(short_slice_value)
+                short_max_up_percentage_list.append(100 - (short_slice[0].value / min_range_value * 100))
+                short_max_down_percentage_list.append(100 - (short_slice[0].value / max_range_value * 100))
+                average_values_range = sum(short_slice_value) / short_numb_of_range_values_list[-1]
+                short_average_percentage_list.append(100 - (short_slice[0].value / average_values_range * 100))
+                short_profit_percentage_given_average_list.append(
+                    (short_average_percentage_list[-1] + (short_profit_percentage_list[-1] * 2)) / 3)
+                try:
+                    short_percentage_of_tr_list.append((max_range_value - min_range_value) / short_slice[0].value * 100)
+                except ZeroDivisionError:
+                    short_percentage_of_tr_list.append(0.0)
+            self.long_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
+                self.long_deals_quantity, long_profit_list, long_profit_percentage_list, long_numb_of_range_values_list,
+                long_max_up_percentage_list, long_max_down_percentage_list, long_profit_percentage_given_average_list,
+                long_average_percentage_list, long_percentage_of_tr_list
+            )
+            self.short_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
+                self.short_deals_quantity, short_profit_list, short_profit_percentage_list,
+                short_numb_of_range_values_list,
+                short_max_up_percentage_list, short_max_down_percentage_list,
+                short_profit_percentage_given_average_list,
+                short_average_percentage_list, short_percentage_of_tr_list
+            )
+            self.recommended_trading_direction = "long" \
+                if (self.long_deals_analytic.risk_index + (100 - self.long_deals_analytic.percent_of_profit_trades)) < (
+                    self.short_deals_analytic.risk_index + (100 - self.short_deals_analytic.percent_of_profit_trades)) \
+                else "short"
+
+        def __str__(self):
+            return str(self.__dict__)
+
+    def __init__(self, indicators: Indicators):
+        self.indicators = indicators
+
+    def strategies_analytics(
+            self, strategy_name: str, analytics_strategy_on_classic_candles: list[CandleArguments]
+    ):
+        signal_indicator, signal_indicator_list = 0, []
+        close_candle_list = self.indicators.candle_info.get_only_close_candles()
+        if strategy_name == "chandelier_exit_strategy":
+            ce_long_and_short_list = self.indicators.return_chandelier_exit.CE_long_and_short_list
+            close_candle_list = close_candle_list[len(close_candle_list) - len(ce_long_and_short_list[0]):]
+            for n in range(0, len(close_candle_list)):
+                prev_numb = n - 1 if n > 0 else n
+                signal_indicator = StrategiesAnalytics.chandelier_exit_strategy(
+                    signal_indicator, (close_candle_list[n], close_candle_list[prev_numb]),
+                    (ce_long_and_short_list[0][n], ce_long_and_short_list[1][n]),
+                    (ce_long_and_short_list[0][prev_numb], ce_long_and_short_list[1][prev_numb])
+                )
+                signal_indicator_list.append(signal_indicator)
+            close_classic_candle_list = CandlesInfo(
+                analytics_strategy_on_classic_candles
+            ).get_only_close_candles() if analytics_strategy_on_classic_candles else None
+            return StrategiesAnalytics.ResultStrategiesAnalytics(
+                signal_indicator_list, close_classic_candle_list[
+                                       len(close_classic_candle_list) - len(ce_long_and_short_list[0]):
+                                       ] if close_classic_candle_list else close_candle_list)
+
+    @staticmethod
+    def chandelier_exit_strategy(
+            signal_indicator, last_and_prev_close: tuple[float],
+            ce_long_and_short: tuple[float], previous_ce_long_and_short: tuple[float]
+    ):
+        if last_and_prev_close[0] > ce_long_and_short[1] and last_and_prev_close[1] < previous_ce_long_and_short[1]:
+            signal_indicator = signal_indicator + 1 if signal_indicator > -1 else 1
+        elif last_and_prev_close[0] < ce_long_and_short[0] and last_and_prev_close[1] > previous_ce_long_and_short[0]:
+            signal_indicator = signal_indicator - 1 if signal_indicator < 1 else -1
+        else:
+            signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
+        return signal_indicator
+
+
 class PrintInfo:
     """Класс вывода информации в консоль"""
 
@@ -1408,6 +1610,49 @@ class PrintInfo:
             pass
 
     @staticmethod
+    def print_strategy_analytics_info(res_strategy: StrategiesAnalytics.ResultStrategiesAnalytics):
+        long_analytics = res_strategy.long_deals_analytic
+        short_analytics = res_strategy.short_deals_analytic
+        print(f"\nРезультаты аналитики стратегии:\n"
+              f"Количество сделок: {res_strategy.amount_of_deals}\n"
+              f"\n• Результаты аналитики сделок в long:\n\n"
+              f"Количество сделок в long: {res_strategy.long_deals_quantity}\n"
+              f"Процент прибыльных сделок: {long_analytics.percent_of_profit_trades}\n"
+              f"Процент прибыльных сделок с учетом диапазона: "
+              f"{long_analytics.percent_of_profit_trades_given_the_range}\n"
+              f"Средняя прибыль за сделку: {long_analytics.average_profit_per_trade}\n"
+              f"Средний процент прибыли за сделку: {long_analytics.average_profit_per_trade_percentage}\n"
+              f"Средняя длительность сделки в свечах: {long_analytics.average_numb_of_values_in_range}\n"
+              f"Средний процент роста после покупки: {long_analytics.average_max_up_percentage}\n"
+              f"Средний процент просадки после покупки: {long_analytics.average_max_down_percentage}\n"
+              f"Процент максимального роста: {long_analytics.maximum_height}\n"
+              f"Процент максимальной просадки: {long_analytics.maximum_drawdown}\n"
+              f"Средний процент изменчивости: {long_analytics.average_percent_variability}\n"
+              f"Процент среднего истинного диапазона: {long_analytics.atr_percentage}\n"
+              f"Индекс риска в процентах: {long_analytics.risk_index}\n"
+              f"Нормализованный stop loss уровень: {long_analytics.normalized_stop_loss_percent_level}\n"
+              f"Нормализованный take profit уровень: {long_analytics.normalized_take_profit_percent_level}\n"
+              f"\n• Результаты аналитики сделок в short:\n\n"
+              f"Количество сделок в short: {res_strategy.short_deals_quantity}\n"
+              f"Процент прибыльных сделок: {short_analytics.percent_of_profit_trades}\n"
+              f"Процент прибыльных сделок с учетом диапазона: "
+              f"{short_analytics.percent_of_profit_trades_given_the_range}\n"
+              f"Средняя прибыль за сделку: {short_analytics.average_profit_per_trade}\n"
+              f"Средний процент прибыли за сделку: {short_analytics.average_profit_per_trade_percentage}\n"
+              f"Средняя длительность сделки в свечах: {short_analytics.average_numb_of_values_in_range}\n"
+              f"Средний процент роста после покупки: {short_analytics.average_max_up_percentage}\n"
+              f"Средний процент просадки после покупки: {short_analytics.average_max_down_percentage}\n"
+              f"Процент максимального роста: {short_analytics.maximum_height}\n"
+              f"Процент максимальной просадки: {short_analytics.maximum_drawdown}\n"
+              f"Средний процент изменчивости: {short_analytics.average_percent_variability}\n"
+              f"Процент среднего истинного диапазона: {short_analytics.atr_percentage}\n"
+              f"Индекс риска в процентах: {short_analytics.risk_index}\n"
+              f"Нормализованный stop loss уровень: {short_analytics.normalized_stop_loss_percent_level}\n"
+              f"Нормализованный take profit уровень: {short_analytics.normalized_take_profit_percent_level}\n"
+
+              f"\n• Рекомендуемое направление сделок: {res_strategy.recommended_trading_direction}\n")
+
+    @staticmethod
     def print_loading(time_sleep: float = 0.002):
         for i in range(101):
             time.sleep(time_sleep)
@@ -1455,209 +1700,6 @@ class PrintInfo:
             Tools.start_timer(input("\nВыставите время остановки таймера в формате ( day:hour:min ):\n"
                                     "Ввод:"))
         print()
-
-
-class Strategies:
-    """Класс стратегии обработки сигналов"""
-
-    def __init__(self, signal_indicator: int, indicators: Indicators):
-        self.SI = signal_indicator
-        self.indicators = indicators
-
-    def chandelier_exit_strategy(self):
-        last_close = self.indicators.candle_info.last_close_candle
-        prev_close = self.indicators.candle_info.previous_close_candle
-        ce = self.indicators.return_chandelier_exit
-        if ce:
-            if last_close > ce.last_CE_short and prev_close < ce.previous_CE_short:
-                self.SI = self.SI + 1 if self.SI > -1 else 1
-            elif last_close < ce.last_CE_long and prev_close > ce.previous_CE_long:
-                self.SI = self.SI - 1 if self.SI < 1 else -1
-            else:
-                self.SI = self.SI + 1 if self.SI > 0 else self.SI - 1
-        else:
-            print("Индикатор 'chandelier_exit' не определен")
-            return ValueError
-        return self.SI
-
-    @staticmethod
-    def strategy_pass():
-        pass
-
-    def __str__(self):
-        return str(self.__dict__)
-
-
-class StrategiesAnalytics:
-    class ResultStrategiesAnalytics:
-        class ListCellArg:
-            def __init__(self, number: int, signal: int, value: float):
-                self.number = number
-                self.signal = signal
-                self.value = value
-
-            def __str__(self):
-                return str(self.__dict__)
-
-        class DealDataAnalysis:
-            def __init__(
-                    self,
-                    deals_quantity: int,
-                    profit_list: list[float],
-                    profit_percentage_list: list[float],
-                    numb_of_range_values_list: list[int],
-                    max_up_percentage_list: list[float],
-                    max_down_percentage_list: list[float],
-                    profit_percentage_given_average_list: list[float],
-                    average_percentage_list: list[float],
-                    percentage_of_tr_list: list[float]
-            ):
-                self.average_profit_per_trade = round(sum(profit_list) / len(profit_list), 2)
-                self.percent_of_profit_trades = round(len([i for i in profit_list if i > 0]) / deals_quantity * 100, 2)
-                self.percent_of_profit_trades_given_the_range = round(
-                    len([i for i in profit_percentage_given_average_list if i > 0]) / deals_quantity * 100, 2)
-                self.average_profit_per_trade_percentage = round(
-                    sum(profit_percentage_list) / len(profit_percentage_list), 2)
-                self.average_numb_of_values_in_range = round(
-                    sum(numb_of_range_values_list) / len(numb_of_range_values_list))
-                self.average_max_up_percentage = round(sum(max_up_percentage_list) / len(max_up_percentage_list), 2)
-                self.average_max_down_percentage = round(sum(max_down_percentage_list) / len(max_down_percentage_list),
-                                                         2)
-                maximum_height = round(max(max_up_percentage_list), 2)
-                maximum_drawdown = round(min(max_down_percentage_list), 2)
-                self.maximum_height = maximum_height if maximum_height != 0.0 else round(min(max_up_percentage_list), 2)
-                self.maximum_drawdown = maximum_drawdown if maximum_drawdown != 0.0 \
-                    else round(max(max_down_percentage_list), 2)
-                self.average_percent_variability = round(sum(average_percentage_list) / len(average_percentage_list), 2)
-                self.atr_percentage = round(sum(percentage_of_tr_list) / len(percentage_of_tr_list), 2)
-                self.risk_index = round(
-                    100 - ((self.percent_of_profit_trades * 2) + self.percent_of_profit_trades_given_the_range) / 3, 2)
-                self.normalized_stop_loss_percent_level = round(
-                    ((self.average_max_down_percentage * 4) + self.maximum_drawdown) / 5, 2)
-                self.normalized_take_profit_percent_level = round(
-                    ((self.average_max_up_percentage * 4) + self.maximum_height) / 5, 2)
-
-            def __str__(self):
-                return str(self.__dict__)
-
-        def __init__(self, signal_list: list[int], value_list: list[float]):
-            print(len(signal_list), len(value_list))
-            iter_numb, single_list, long_deals, short_deals = 0, [], [], []
-            for signal, value in zip(signal_list, value_list):
-                single_list.append(StrategiesAnalytics.ResultStrategiesAnalytics.ListCellArg(iter_numb, signal, value))
-                if signal == 1:
-                    long_deals.append(single_list[-1])
-                elif signal == -1:
-                    short_deals.append(single_list[-1])
-                iter_numb += 1
-            self.long_deals_quantity = len(long_deals)
-            self.short_deals_quantity = len(short_deals)
-            self.amount_of_deals = len(long_deals) + len(short_deals)
-            pair_for_long = (long_deals, short_deals) if long_deals[0].number <= short_deals[0].number \
-                else (long_deals, short_deals[1:])
-            pair_for_short = (short_deals, long_deals) if short_deals[0].number <= long_deals[0].number \
-                else (short_deals, long_deals[1:])
-            long_profit_list, short_profit_list = [], []
-            long_profit_percentage_list, short_profit_percentage_list = [], []
-            long_profit_percentage_given_average_list, short_profit_percentage_given_average_list = [], []
-            long_numb_of_range_values_list, short_numb_of_range_values_list = [], []
-            long_max_up_percentage_list, long_max_down_percentage_list = [], []
-            short_max_up_percentage_list, short_max_down_percentage_list = [], []
-            long_average_percentage_list, short_average_percentage_list = [], []
-            long_percentage_of_tr_list, short_percentage_of_tr_list = [], []
-            for long_deal, short_deal in zip(*pair_for_long):
-                long_slice = single_list[long_deal.number:short_deal.number + 1]
-                long_profit_list.append(long_slice[-1].value - long_slice[0].value)
-                long_profit_percentage_list.append(long_profit_list[-1] / long_slice[0].value * 100)
-                long_numb_of_range_values_list.append(len(long_slice))
-                long_slice_value = [i.value for i in long_slice]
-                max_range_value, min_range_value = max(long_slice_value), min(long_slice_value)
-                long_max_up_percentage_list.append(100 - (long_slice[0].value / max_range_value * 100))
-                long_max_down_percentage_list.append(100 - (long_slice[0].value / min_range_value * 100))
-                average_values_range = sum(long_slice_value) / long_numb_of_range_values_list[-1]
-                long_average_percentage_list.append(100 - (long_slice[0].value / average_values_range * 100))
-                long_profit_percentage_given_average_list.append(
-                    (long_average_percentage_list[-1] + (long_profit_percentage_list[-1] * 2)) / 3)
-                try:
-                    long_percentage_of_tr_list.append((max_range_value - min_range_value) / long_slice[0].value * 100)
-                except ZeroDivisionError:
-                    long_percentage_of_tr_list.append(0.0)
-            for short_deal, long_deal in zip(*pair_for_short):
-                short_slice = single_list[short_deal.number:long_deal.number + 1]
-                short_profit_list.append(short_slice[0].value - short_slice[-1].value)
-                short_profit_percentage_list.append(short_profit_list[-1] / short_slice[0].value * 100)
-                short_numb_of_range_values_list.append(len(short_slice))
-                short_slice_value = [i.value for i in short_slice]
-                max_range_value, min_range_value = max(short_slice_value), min(short_slice_value)
-                short_max_up_percentage_list.append(100 - (short_slice[0].value / min_range_value * 100))
-                short_max_down_percentage_list.append(100 - (short_slice[0].value / max_range_value * 100))
-                average_values_range = sum(short_slice_value) / short_numb_of_range_values_list[-1]
-                short_average_percentage_list.append(100 - (short_slice[0].value / average_values_range * 100))
-                short_profit_percentage_given_average_list.append(
-                    (short_average_percentage_list[-1] + (short_profit_percentage_list[-1] * 2)) / 3)
-                try:
-                    short_percentage_of_tr_list.append((max_range_value - min_range_value) / short_slice[0].value * 100)
-                except ZeroDivisionError:
-                    short_percentage_of_tr_list.append(0.0)
-            self.long_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
-                self.long_deals_quantity, long_profit_list, long_profit_percentage_list, long_numb_of_range_values_list,
-                long_max_up_percentage_list, long_max_down_percentage_list, long_profit_percentage_given_average_list,
-                long_average_percentage_list, long_percentage_of_tr_list
-            )
-            self.short_deals_analytic = StrategiesAnalytics.ResultStrategiesAnalytics.DealDataAnalysis(
-                self.short_deals_quantity, short_profit_list, short_profit_percentage_list,
-                short_numb_of_range_values_list,
-                short_max_up_percentage_list, short_max_down_percentage_list,
-                short_profit_percentage_given_average_list,
-                short_average_percentage_list, short_percentage_of_tr_list
-            )
-            self.recommended_trading_direction = "long" \
-                if (self.long_deals_analytic.risk_index + (100 - self.long_deals_analytic.percent_of_profit_trades)) < (
-                    self.short_deals_analytic.risk_index + (100 - self.short_deals_analytic.percent_of_profit_trades)) \
-                else "short"
-
-        def __str__(self):
-            return str(self.__dict__)
-
-    def __init__(self, indicators: Indicators):
-        self.indicators = indicators
-
-    def strategies_analytics(
-            self, strategy_name: str, analytics_strategy_on_classic_candles: list[CandleArguments] = None
-    ):
-        signal_indicator, signal_indicator_list = 0, []
-        close_candle_list = self.indicators.candle_info.get_only_close_candles()
-        if strategy_name == "chandelier_exit_strategy":
-            ce_long_and_short_list = self.indicators.return_chandelier_exit.CE_long_and_short_list
-            close_candle_list = close_candle_list[len(close_candle_list) - len(ce_long_and_short_list[0]):]
-            for n in range(0, len(close_candle_list)):
-                prev_numb = n - 1 if n > 0 else n
-                signal_indicator = StrategiesAnalytics.chandelier_exit_strategy(
-                    signal_indicator, (close_candle_list[n], close_candle_list[prev_numb]),
-                    (ce_long_and_short_list[0][n], ce_long_and_short_list[1][n]),
-                    (ce_long_and_short_list[0][prev_numb], ce_long_and_short_list[1][prev_numb])
-                )
-                signal_indicator_list.append(signal_indicator)
-            close_classic_candle_list = CandlesInfo(
-                analytics_strategy_on_classic_candles
-            ).get_only_close_candles() if analytics_strategy_on_classic_candles else None
-            return StrategiesAnalytics.ResultStrategiesAnalytics(
-                signal_indicator_list, close_classic_candle_list[
-                                       len(close_classic_candle_list) - len(ce_long_and_short_list[0]):
-                                       ] if close_classic_candle_list else close_candle_list)
-
-    @staticmethod
-    def chandelier_exit_strategy(
-            signal_indicator, last_and_prev_close: tuple[float],
-            ce_long_and_short: tuple[float], previous_ce_long_and_short: tuple[float]
-    ):
-        if last_and_prev_close[0] > ce_long_and_short[1] and last_and_prev_close[1] < previous_ce_long_and_short[1]:
-            signal_indicator = signal_indicator + 1 if signal_indicator > -1 else 1
-        elif last_and_prev_close[0] < ce_long_and_short[0] and last_and_prev_close[1] > previous_ce_long_and_short[0]:
-            signal_indicator = signal_indicator - 1 if signal_indicator < 1 else -1
-        else:
-            signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
-        return signal_indicator
 
 
 class MarketDataHandler:
@@ -1729,9 +1771,18 @@ class MainServices:
         )
 
     def get_chandelier_exit_strategy_analytics(
-            self, figi: str, days: int, candle_interval: CandleInterval, candle_type
+            self, figi: str, days: int, candle_interval: CandleInterval, candle_type, ce_period: int, ce_factor: float
     ):
-        return
+        if candle_type == 1:
+            cl_candle = self.get_historical_candles(figi, days, candle_interval, 1)
+            ha_candle = None
+        elif candle_type == 2:
+            cl_candle, ha_candle = self.get_historical_candles(figi, days, candle_interval, "oll")
+        else:
+            cl_candle, ha_candle = self.get_historical_candles(figi, days, candle_interval, "oll")
+        indicators = Indicators(ha_candle if candle_type == 2 else cl_candle)
+        indicators.chandelier_exit(ce_period, ce_factor)
+        return StrategiesAnalytics(indicators).strategies_analytics("chandelier_exit_strategy", cl_candle)
 
     @staticmethod
     def request_iterator(figi: str, subscribe_interval: SubscriptionInterval):
@@ -1923,6 +1974,10 @@ def main():
             candles_info=CandlesInfo(GetHistoricalCandles(client, figi, 90).get_classic_1day_historical_candles())
         ).print_info(print_client_info=False)
 
+        strategy_analytics = ms.get_chandelier_exit_strategy_analytics(
+            figi, S.days, S.candle_interval, S.candle_type, S.chandelier_exit_length, S.chandelier_exit_factor)
+        PrintInfo.print_strategy_analytics_info(strategy_analytics)
+
         PrintInfo.print_before_starting_the_main_loop(S)
 
         """Запрос и обработка первичных данных"""
@@ -1931,8 +1986,7 @@ def main():
         adx = indicators.adx(S.adx_length)
         chandelier_exit = indicators.chandelier_exit(S.chandelier_exit_length, S.chandelier_exit_factor)
         ema = indicators.ema(S.ema_length)
-        last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type, out="oll")
-        #  candle_list_oll = Tools.adding_missing_elements_for_classes(candle_list_oll, last_historical_candle)
+        last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type)
         candle = candle_list_oll[-1]
         last_price = ms.get_last_price(figi)
 
