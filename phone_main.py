@@ -3,6 +3,7 @@ import glob
 from datetime import datetime, timedelta, timezone
 import threading
 import random
+import matplotlib.pyplot as plt
 from tinkoff.invest.services import Services
 from tinkoff.invest import (
     OrderDirection,
@@ -19,6 +20,9 @@ from tinkoff.invest import (
     SubscribeLastPriceRequest,
     RequestError
 )
+
+
+#  print(help('modules'))
 
 
 class Tools:
@@ -66,6 +70,26 @@ class Tools:
         print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end, flush=True)
         if iteration == total:
             print()
+
+    @staticmethod
+    def plotting(
+            x: list,
+            y: list,
+            x_label: str = 'Numb',
+            y_label: str = 'Price',
+            plot_color: str = "#00ff91",
+            style: str = 'dark_background',
+            show: bool = True,
+            save: bool = False,
+    ):
+        plt.style.use(style)
+        plt.plot(x, y, color=plot_color)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        if save:
+            plt.savefig("plot.png")
+        if show:
+            plt.show()
 
 
 class SmoothingMethods:
@@ -225,9 +249,12 @@ class Settings:
             numb_setting += 1
         try:
             inp = input("\n'*' запустить программу в режиме анализа стратегии\n"
+                        "'-' запустить программу построение графика\n"
                         "Введите номер профиля настроек который хотите выбрать:")
             if inp == "*":
-                return None
+                return "strategy_analysis_mode"
+            elif inp == "-":
+                return "plotting_mode"
             path = setting_list[int(inp)]
         except (IndexError, ValueError):
             print("\nОшибка ввода...\n")
@@ -1908,6 +1935,14 @@ class MainServices:
             pass
 
 
+def plotting_mode(services: MainServices):
+    figi = services.find_instrument()[-1]
+    candles = services.get_historical_candles(figi, 30, CandleInterval.CANDLE_INTERVAL_5_MIN, 1)
+    close_candles = CandlesInfo(candles).get_only_close_candles()
+    candles_numbs = [i for i in range(len(close_candles))]
+    Tools.plotting(candles_numbs, close_candles)
+
+
 def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strategy_analysis_mode_setting.txt"):
     print("Произведен запуск в режиме анализа стратегии...\n")
     try:
@@ -2103,7 +2138,7 @@ def main():
     """ Settings """
 
     S = MainServices.get_my_settings()
-    if S:
+    if type(S) == SettingsHandler:
         PrintInfo(settings_info=S).print_settings_info()
 
     signal_indicator = 0
@@ -2116,11 +2151,14 @@ def main():
     """ Start """
 
     PrintInfo.print_start_label()
-    threading.Thread(target=PrintInfo.print_loading, name="print_loading").start() if S else None
+    threading.Thread(target=PrintInfo.print_loading, name="print_loading").start() if type(S) == SettingsHandler \
+        else None
 
     with Client(TOKENS.Tinkoff_Token) as client:
-        if not S:
+        if S == "strategy_analysis_mode":
             launch_in_strategy_analysis_mode(MainServices(client))
+        elif S == "plotting_mode":
+            plotting_mode(MainServices(client))
         while len(threading.enumerate()) > 1:
             time.sleep(0.05)
 
