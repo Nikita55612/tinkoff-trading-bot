@@ -1910,9 +1910,13 @@ class MainServices:
 
 def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strategy_analysis_mode_setting.txt"):
     print("Произведен запуск в режиме анализа стратегии...\n")
-    with open(path, encoding='utf-8') as filehandle:
-        strategy_analysis_mode_setting = tuple(
-            [rl.rstrip().split('=')[1].replace(" ", "") for rl in filehandle.readlines()])
+    try:
+        with open(path, encoding='utf-8') as filehandle:
+            strategy_analysis_mode_setting = tuple(
+                [rl.rstrip().split('=')[1].replace(" ", "") for rl in filehandle.readlines()])
+    except FileNotFoundError:
+        print("Файл с настройками не обнаружен!\n")
+        raise SystemExit
     interval_argument = {"1m": CandleInterval.CANDLE_INTERVAL_1_MIN, "5m": CandleInterval.CANDLE_INTERVAL_5_MIN}
     days = int(strategy_analysis_mode_setting[0])
     candle_type = int(strategy_analysis_mode_setting[1])
