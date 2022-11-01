@@ -1952,7 +1952,19 @@ def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strate
         print(StrategyAnalyticsResultsEvaluationIterator(*analytics_iterator))
     else:
         print("Индикатор не определен...")
-    input()
+        indicators = None
+        cl_candle = None
+    if name_strategy == "chandelier_exit":
+        while True:
+            inp = input("Анализ стратегии через определение настроек индикатора:\n"
+                        "Определите параметры индикатора в формате ( period:factor ):")
+            period, factor = inp.split(":")
+            indicators.chandelier_exit(int(period), float(factor))
+            strategy_analytics = StrategiesAnalytics(
+                indicators).strategies_analytics("chandelier_exit_strategy", cl_candle)
+            PrintInfo.print_strategy_analytics_info(strategy_analytics)
+            if input("'*' завершить работу\n""Enter для продолжения:") == "*":
+                raise SystemExit
     raise SystemExit
 
 
