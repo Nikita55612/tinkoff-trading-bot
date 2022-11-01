@@ -22,9 +22,6 @@ from tinkoff.invest import (
 )
 
 
-#  print(help('modules'))
-
-
 class Tools:
     """Класс инструментов обработки"""
 
