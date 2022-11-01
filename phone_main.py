@@ -768,7 +768,7 @@ class GetHistoricalCandles:
             from_=datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(minutes=from_minutes),
             interval=candle_interval
         )]
-        return candles[-1] if out == "last" else candles
+        return None if len(candles) < 1 else candles[-1] if out == "last" else candles
 
     def get_ha_last_historical_candle(self, candle_interval: CandleInterval, from_minutes: int = 6, out: str = "last"):
         historical_candles = []
@@ -780,7 +780,7 @@ class GetHistoricalCandles:
             historical_candles.append(CandleHandler(
                 candle, self.candle_interval_options[candle_interval.value]).ha_candle_handler(
                 historical_candles[-1] if len(historical_candles) > 0 else None))
-        return historical_candles[-1] if out == "last" else historical_candles
+        return None if len(historical_candles) < 1 else historical_candles[-1] if out == "last" else historical_candles
 
     def get_classic_historical_candles(self, candle_interval: CandleInterval):
         return [CandleHandler(
@@ -1851,7 +1851,7 @@ class MainServices:
             historical_candles.get_classic_historical_candles(candle_interval)
 
     def get_last_historical_candle(
-            self, figi: str, candle_interval: CandleInterval, candle_type, from_minutes: int = 30, out: str = "last"
+            self, figi: str, candle_interval: CandleInterval, candle_type, from_minutes: int = 10, out: str = "last"
     ):
         last_historical_candles = GetHistoricalCandles(self.Client, figi, 0)
         return last_historical_candles.get_ha_last_historical_candle(candle_interval, from_minutes, out) if \
@@ -2145,7 +2145,7 @@ def main():
         chandelier_exit = indicators.chandelier_exit(S.chandelier_exit_length, S.chandelier_exit_factor)
         ema = indicators.ema(S.ema_length)
         last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type)
-        if last_historical_candle.time != candle_list_oll[-1].time:
+        if last_historical_candle and last_historical_candle.time != candle_list_oll[-1].time:
             print(f"\nДобавлена пропущенная свеча:\n\n"
                   f"Старая последняя свеча: {str(candle_list_oll[-1])}\n"
                   f"Новая последняя свеча: {str(last_historical_candle)}\n")
