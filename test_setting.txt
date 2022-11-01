@@ -5,8 +5,8 @@
 Тип свечей = 2
 Интервал свечей = 1m
 Длина ADX = 2
-Длина chandelier exit = 2
-Множитель chandelier exit = 1
+Длина chandelier exit = 7
+Множитель chandelier exit = 2.4
 Длина ema = 14
 stop_loss = -0.1, -0.15, -0.2, -0.25, -0.3, -0.4, -100.0
 Уровень обновления stop_loss = 0.6
