@@ -34,24 +34,10 @@ class Tools:
 
     @staticmethod
     def adding_missing_elements(old_list: list, new_list: list):
-        n = 0
         for i in new_list:
-
             if i not in old_list:
-                print(n)
                 old_list.append(i)
-                n += 1
         return old_list
-
-    @staticmethod
-    def adding_missing_elements_for_classes(old_class_list: list[super], new_class_list: list[super]):
-        n = 0
-        for n, i in enumerate([c.__dict__ for c in new_class_list]):
-            if i not in [c.__dict__ for c in old_class_list]:
-                print(n)
-                old_class_list.append(new_class_list[n])
-                n += 1
-        return old_class_list
 
     @staticmethod
     def start_timer(stop_timer: str):
@@ -71,6 +57,15 @@ class Tools:
                     time.sleep(59)
             else:
                 time.sleep(59)
+
+    @staticmethod
+    def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', print_end=""):
+        percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+        filledLength = int(length * iteration // total)
+        bar = fill * filledLength + '-' * (length - filledLength)
+        print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end, flush=True)
+        if iteration == total:
+            print()
 
 
 class SmoothingMethods:
@@ -153,6 +148,7 @@ class SettingsHandler:
         self.first_signal_processing = bool(int(settings[16]))
         self.logging = bool(int(settings[17]))
         self.print_style = int(settings[18]) if int(settings[18]) <= 1 else 0
+        self.strategy_analytics = bool(int(settings[19]))
         self.session_id = random.randrange(10000, 99999)
 
     def change_settings(self):
@@ -223,11 +219,19 @@ class Settings:
     def setting_request(self):
         setting_list = glob.glob("*_setting.txt")
         print("Выбор профиля настроек\nВаши профили:\n")
-        numb_setting = 0
+        numb_setting, path = 0, None
         for setting in setting_list:
             print(f"{numb_setting}. {setting}")
             numb_setting += 1
-        path = setting_list[int(input("\nВведите номер профиля настроек который хотите выбрать:"))]
+        try:
+            inp = input("\n'*' запустить программу в режиме анализа стратегии\n"
+                        "Введите номер профиля настроек который хотите выбрать:")
+            if inp == "*":
+                return None
+            path = setting_list[int(inp)]
+        except (IndexError, ValueError):
+            print("\nОшибка ввода...\n")
+            self.setting_request()
         try:
             with open(path, encoding='utf-8') as filehandle:
                 return SettingsHandler(
@@ -1317,7 +1321,9 @@ class StrategiesAnalytics:
                 else "short"
 
         def __str__(self):
-            return str(self.__dict__)
+            return str(self.__dict__), \
+                   "long_deals_analytic: " + str(self.long_deals_analytic), \
+                   "short_deals_analytic: " + str(self.short_deals_analytic)
 
     def __init__(self, indicators: Indicators):
         self.indicators = indicators
@@ -1346,6 +1352,25 @@ class StrategiesAnalytics:
                                        len(close_classic_candle_list) - len(ce_long_and_short_list[0]):
                                        ] if close_classic_candle_list else close_candle_list)
 
+    def chandelier_exit_strategy_analytics_iterator(
+            self, analytics_strategy_on_classic_candles: list[CandleArguments],
+            period_range: tuple[int], factor_range: tuple[float], factor_step: float, progress_bar: bool = True
+    ):
+        iteration_result_list, strategy_setting_list = [], []
+        for period in range(*period_range):
+            factor = factor_range[0]
+            if progress_bar:
+                Tools.print_progress_bar(period + 1, period_range[1], "StrategiesAnalytics ", length=40)
+            for n in range(round(factor_range[1] / factor_step)):
+                indicators = Indicators(self.indicators.candles)
+                indicators.chandelier_exit(period, factor)
+                strategies_analytics: StrategiesAnalytics.ResultStrategiesAnalytics = StrategiesAnalytics(
+                    indicators).strategies_analytics("chandelier_exit_strategy", analytics_strategy_on_classic_candles)
+                iteration_result_list.append(strategies_analytics)
+                strategy_setting_list.append({"period": period, "factor": factor})
+                factor = round(factor + factor_step, 2)
+        return iteration_result_list, strategy_setting_list
+
     @staticmethod
     def chandelier_exit_strategy(
             signal_indicator, last_and_prev_close: tuple[float],
@@ -1358,6 +1383,85 @@ class StrategiesAnalytics:
         else:
             signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
         return signal_indicator
+
+
+class StrategyAnalyticsResultsEvaluationIterator:
+    def __init__(
+            self,
+            iteration_result_list: list[StrategiesAnalytics.ResultStrategiesAnalytics],
+            strategy_setting_list: list[dict]
+    ):
+        long_percent_of_profit_trades_list = []
+        long_risk_index_list = []
+        long_average_max_up_percentage_list = []
+        long_average_profit_per_trade_percentage_list = []
+        short_percent_of_profit_trades_list = []
+        short_risk_index_list = []
+        short_average_max_up_percentage_list = []
+        short_average_profit_per_trade_percentage_list = []
+        for iteration_result in iteration_result_list:
+            long_deals_analytic = iteration_result.long_deals_analytic
+            short_deals_analytic = iteration_result.short_deals_analytic
+            long_percent_of_profit_trades_list.append(long_deals_analytic.percent_of_profit_trades)
+            long_risk_index_list.append(long_deals_analytic.risk_index)
+            long_average_max_up_percentage_list.append(long_deals_analytic.average_max_up_percentage)
+            long_average_profit_per_trade_percentage_list.append(
+                long_deals_analytic.average_profit_per_trade_percentage)
+            short_percent_of_profit_trades_list.append(short_deals_analytic.percent_of_profit_trades)
+            short_risk_index_list.append(short_deals_analytic.risk_index)
+            short_average_max_up_percentage_list.append(short_deals_analytic.average_max_up_percentage)
+            short_average_profit_per_trade_percentage_list.append(
+                short_deals_analytic.average_profit_per_trade_percentage)
+        self.best_long_percent_of_profit_trades = max(long_percent_of_profit_trades_list)
+        self.best_long_risk_index = min(long_risk_index_list)
+        self.best_long_average_max_up_percentage = max(long_average_max_up_percentage_list)
+        self.best_long_average_profit_per_trade_percentage = max(long_average_profit_per_trade_percentage_list)
+        self.best_short_percent_of_profit_trades = max(short_percent_of_profit_trades_list)
+        self.best_short_risk_index = min(short_risk_index_list)
+        self.best_short_average_max_up_percentage = min(short_average_max_up_percentage_list)
+        self.best_short_average_profit_per_trade_percentage = max(short_average_profit_per_trade_percentage_list)
+        for n, result_strategies_analytics in enumerate(iteration_result_list):
+            long_deals_analytic = result_strategies_analytics.long_deals_analytic
+            short_deals_analytic = result_strategies_analytics.short_deals_analytic
+            if self.best_long_percent_of_profit_trades == long_deals_analytic.percent_of_profit_trades:
+                self.best_long_percent_of_profit_trades_strategy_setting = strategy_setting_list[n]
+            if self.best_long_risk_index == long_deals_analytic.risk_index:
+                self.best_long_risk_index_strategy_setting = strategy_setting_list[n]
+            if self.best_long_average_max_up_percentage == long_deals_analytic.average_max_up_percentage:
+                self.best_long_average_max_up_percentage_strategy_setting = strategy_setting_list[n]
+            if self.best_long_average_profit_per_trade_percentage == (
+                    long_deals_analytic.average_profit_per_trade_percentage):
+                self.best_long_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
+            if self.best_short_percent_of_profit_trades == short_deals_analytic.percent_of_profit_trades:
+                self.best_short_percent_of_profit_trades_strategy_setting = strategy_setting_list[n]
+            if self.best_short_risk_index == short_deals_analytic.risk_index:
+                self.best_short_risk_index_strategy_setting = strategy_setting_list[n]
+            if self.best_short_average_max_up_percentage == short_deals_analytic.average_max_up_percentage:
+                self.best_short_average_max_up_percentage_strategy_setting = strategy_setting_list[n]
+            if self.best_short_average_profit_per_trade_percentage == (
+                    short_deals_analytic.average_profit_per_trade_percentage):
+                self.best_short_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
+
+    def __str__(self):
+        return f"\nИтоги оценки результатов аналитики стратегии:\n" \
+               f"\nLong оценка:\n\n" \
+               f"Лучший процент прибыльных сделок: {self.best_long_percent_of_profit_trades}, " \
+               f"значения индикатора: {self.best_long_percent_of_profit_trades_strategy_setting}\n" \
+               f"Минимальный процент индекса риска: {self.best_long_risk_index}, " \
+               f"значения индикатора: {self.best_long_risk_index_strategy_setting}\n" \
+               f"Максимальный средний процент роста: {self.best_long_average_max_up_percentage}, " \
+               f"значения индикатора: {self.best_long_average_max_up_percentage_strategy_setting}\n" \
+               f"Максимальный средний процент прибыли: {self.best_long_average_profit_per_trade_percentage}, " \
+               f"значения индикатора: {self.best_long_average_profit_per_trade_percentage_strategy_setting}\n" \
+               f"\nShort оценка:\n\n" \
+               f"Лучший процент прибыльных сделок: {self.best_short_percent_of_profit_trades}, " \
+               f"значения индикатора: {self.best_short_percent_of_profit_trades_strategy_setting}\n" \
+               f"Минимальный процент индекса риска: {self.best_short_risk_index}, " \
+               f"значения индикатора: {self.best_short_risk_index_strategy_setting}\n" \
+               f"Максимальный средний процент роста: {self.best_short_average_max_up_percentage}, " \
+               f"значения индикатора: {self.best_short_average_max_up_percentage_strategy_setting}\n" \
+               f"Максимальный средний процент прибыли: {self.best_short_average_profit_per_trade_percentage}, " \
+               f"значения индикатора: {self.best_short_average_profit_per_trade_percentage_strategy_setting}\n"
 
 
 class PrintInfo:
@@ -1804,6 +1908,50 @@ class MainServices:
             pass
 
 
+def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strategy_analysis_mode_setting.txt"):
+    print("Произведен запуск в режиме анализа стратегии...\n")
+    with open(path, encoding='utf-8') as filehandle:
+        strategy_analysis_mode_setting = tuple(
+            [rl.rstrip().split('=')[1].replace(" ", "") for rl in filehandle.readlines()])
+    interval_argument = {"1m": CandleInterval.CANDLE_INTERVAL_1_MIN, "5m": CandleInterval.CANDLE_INTERVAL_5_MIN}
+    days = int(strategy_analysis_mode_setting[0])
+    candle_type = int(strategy_analysis_mode_setting[1])
+    candle_interval_str = strategy_analysis_mode_setting[2]
+    candle_interval = interval_argument[candle_interval_str]
+    name_strategy = strategy_analysis_mode_setting[3].replace(" ", "")
+    period_range = tuple([int(i) for i in strategy_analysis_mode_setting[4].split(":")])
+    factor_range = tuple([float(i) for i in strategy_analysis_mode_setting[5].split(":")])
+    factor_step = float(strategy_analysis_mode_setting[6])
+    input(f"Ваши настройки в режиме анализа стратегии:\n\n"
+          f"Количество дней = {days}\n"
+          f"Тип свечей для индикатора = {candle_type}\n"
+          f"Интервал свечей = {candle_interval_str}\n"
+          f"Имя стратегии = {name_strategy}\n"
+          f"chandelier exit диапазон периода = {period_range}\n"
+          f"chandelier exit диапазон множителя = {factor_range}\n"
+          f"chandelier exit шаг множителя = {factor_step}\n\n"
+          f"Проверьте настройки и нажмите Enter для запуска:")
+    figi = services.find_instrument()[-1]
+    print("\nПолучение свечей...\n")
+    if name_strategy == "chandelier_exit":
+        if candle_type == 1:
+            cl_candle = services.get_historical_candles(figi, days, candle_interval, 1)
+            ha_candle = None
+        elif candle_type == 2:
+            cl_candle, ha_candle = services.get_historical_candles(figi, days, candle_interval, "oll")
+        else:
+            cl_candle, ha_candle = services.get_historical_candles(figi, days, candle_interval, "oll")
+        indicators = Indicators(ha_candle if candle_type == 2 else cl_candle)
+        analytics_iterator = StrategiesAnalytics(
+            indicators).chandelier_exit_strategy_analytics_iterator(
+            cl_candle if candle_type == 2 else None, period_range, factor_range, factor_step)
+        print(StrategyAnalyticsResultsEvaluationIterator(*analytics_iterator))
+    else:
+        print("Индикатор не определен...")
+    input()
+    raise SystemExit
+
+
 def writing_strategies(path: str = "list_strategies_name.txt"):
     with open(path, "w") as file:
         file.write(str([m for m in dir(Strategies) if not m.startswith('__')]))
@@ -1939,7 +2087,9 @@ def main():
     """ Settings """
 
     S = MainServices.get_my_settings()
-    PrintInfo(settings_info=S).print_settings_info()
+    if S:
+        PrintInfo(settings_info=S).print_settings_info()
+
     signal_indicator = 0
     take_profit_deals_quantity, stop_loss_deals_quantity = 0, 0
     take_profit_numb, stop_loss_numb = 0, 0
@@ -1950,9 +2100,11 @@ def main():
     """ Start """
 
     PrintInfo.print_start_label()
-    threading.Thread(target=PrintInfo.print_loading, name="print_loading").start()
+    threading.Thread(target=PrintInfo.print_loading, name="print_loading").start() if S else None
 
     with Client(TOKENS.Tinkoff_Token) as client:
+        if not S:
+            launch_in_strategy_analysis_mode(MainServices(client))
         while len(threading.enumerate()) > 1:
             time.sleep(0.05)
 
@@ -1974,9 +2126,11 @@ def main():
             candles_info=CandlesInfo(GetHistoricalCandles(client, figi, 90).get_classic_1day_historical_candles())
         ).print_info(print_client_info=False)
 
-        strategy_analytics = ms.get_chandelier_exit_strategy_analytics(
-            figi, S.days, S.candle_interval, S.candle_type, S.chandelier_exit_length, S.chandelier_exit_factor)
-        PrintInfo.print_strategy_analytics_info(strategy_analytics)
+        """Аналитика стратегии"""
+        if S.strategy_analytics:
+            strategy_analytics = ms.get_chandelier_exit_strategy_analytics(
+                figi, S.days, S.candle_interval, S.candle_type, S.chandelier_exit_length, S.chandelier_exit_factor)
+            PrintInfo.print_strategy_analytics_info(strategy_analytics)
 
         PrintInfo.print_before_starting_the_main_loop(S)
 
@@ -1987,6 +2141,11 @@ def main():
         chandelier_exit = indicators.chandelier_exit(S.chandelier_exit_length, S.chandelier_exit_factor)
         ema = indicators.ema(S.ema_length)
         last_historical_candle = ms.get_last_historical_candle(figi, S.candle_interval, S.candle_type)
+        if last_historical_candle.time != candle_list_oll[-1].time:
+            print(f"\nДобавлена пропущенная свеча:\n\n"
+                  f"Старая последняя свеча: {str(candle_list_oll[-1])}\n"
+                  f"Новая последняя свеча: {str(last_historical_candle)}\n")
+            candle_list_oll.append(last_historical_candle)
         candle = candle_list_oll[-1]
         last_price = ms.get_last_price(figi)
 
