@@ -3,7 +3,7 @@ import glob
 from datetime import datetime, timedelta, timezone
 import threading
 import random
-import matplotlib.pyplot as plt
+import plotext as plt
 from tinkoff.invest.services import Services
 from tinkoff.invest import (
     OrderDirection,
@@ -70,23 +70,24 @@ class Tools:
 
     @staticmethod
     def plotting(
-            x: list,
-            y: list,
+            x: list, y: list,
+            title: str = "",
             x_label: str = 'Numb',
             y_label: str = 'Price',
-            plot_color: str = "#00ff91",
-            style: str = 'dark_background',
-            show: bool = True,
-            save: bool = False,
+            plot_color: tuple[int] = (255, 255, 255),
+            background_color: tuple[int] = (0, 0, 0),
+            ticks_color: tuple[int] = "green+",
+            marker: str = "|",
     ):
-        plt.style.use(style)
-        plt.plot(x, y, color=plot_color)
+        plt.canvas_color(background_color)
+        plt.axes_color(background_color)
+        plt.ticks_color(ticks_color)
+        plt.plot(x, y, color=plot_color, marker=marker)
+        plt.title(title)
         plt.xlabel(x_label)
         plt.ylabel(y_label)
-        if save:
-            plt.savefig("plot.png")
-        if show:
-            plt.show()
+        plt.show()
+        print()
 
 
 class SmoothingMethods:
@@ -170,6 +171,7 @@ class SettingsHandler:
         self.logging = bool(int(settings[17]))
         self.print_style = int(settings[18]) if int(settings[18]) <= 1 else 0
         self.strategy_analytics = bool(int(settings[19]))
+        self.plotting = bool(int(settings[20]))
         self.session_id = random.randrange(10000, 99999)
 
     def change_settings(self):
@@ -634,30 +636,34 @@ class CandleHandler:
 class CandlesInfo:
     """Класс получения информации о свечах"""
 
-    def __init__(self, candles: list[CandleArguments]):
+    def __init__(self, candles: list[CandleArguments], only_methods: bool = False):
         self.candles = candles
-        self.candles_quantity = len(candles)
-        self.candle_interval = candles[-1].interval
-        self.last_open_candle = candles[-1].open
-        self.last_high_candle = candles[-1].high
-        self.last_low_candle = candles[-1].low
-        self.last_close_candle = candles[-1].close
-        self.last_difference_high_low = round(self.last_high_candle - self.last_low_candle, 2)
-        self.last_volume_candle = candles[-1].volume
-        self.last_time_candle = candles[-1].time
-        self.last_close_candle_positivity_negativity = "positive" if self.last_close_candle >= candles[-2].close \
-            else "negative"
-        self.last_4ohlc_candle = round((self.last_open_candle + self.last_high_candle +
-                                        self.last_low_candle + self.last_close_candle) / 4, 2)
-        self.previous_open_candle = candles[-2].open
-        self.previous_high_candle = candles[-2].high
-        self.previous_low_candle = candles[-2].low
-        self.previous_close_candle = candles[-2].close
-        self.previous_4ohlc_candle = round((self.previous_open_candle + self.previous_high_candle +
-                                            self.previous_low_candle + self.previous_close_candle) / 4, 2)
+        if not only_methods:
+            self.candles_quantity = len(candles)
+            self.candle_interval = candles[-1].interval
+            self.last_open_candle = candles[-1].open
+            self.last_high_candle = candles[-1].high
+            self.last_low_candle = candles[-1].low
+            self.last_close_candle = candles[-1].close
+            self.last_difference_high_low = round(self.last_high_candle - self.last_low_candle, 2)
+            self.last_volume_candle = candles[-1].volume
+            self.last_time_candle = candles[-1].time
+            self.last_close_candle_positivity_negativity = "positive" if self.last_close_candle >= candles[-2].close \
+                else "negative"
+            self.last_4ohlc_candle = round((self.last_open_candle + self.last_high_candle +
+                                            self.last_low_candle + self.last_close_candle) / 4, 2)
+            self.previous_open_candle = candles[-2].open
+            self.previous_high_candle = candles[-2].high
+            self.previous_low_candle = candles[-2].low
+            self.previous_close_candle = candles[-2].close
+            self.previous_4ohlc_candle = round((self.previous_open_candle + self.previous_high_candle +
+                                                self.previous_low_candle + self.previous_close_candle) / 4, 2)
 
     def get_only_weekdays_candles(self):
         return [i for i in self.candles if datetime.isoweekday(i.time) not in (6, 7)]
+
+    def get_only_numb_candles(self):
+        return [i for i in range(len(self.candles))]
 
     def get_only_open_candles(self):
         return [i.open for i in self.candles]
@@ -1209,9 +1215,19 @@ class Strategies:
             return ValueError
         return self.SI
 
-    @staticmethod
-    def strategy_pass():
-        pass
+    def ema_cross_ma_strategy(self):
+        ma, ema = self.indicators.return_ma, self.indicators.return_ema
+        if ma and ema:
+            if ema[-1] > ma[-1] and ema[-2] < ma[-2]:
+                self.SI = self.SI + 1 if self.SI > -1 else 1
+            elif ema[-1] < ma[-1] and ema[-2] > ma[-2]:
+                self.SI = self.SI - 1 if self.SI < 1 else -1
+            else:
+                self.SI = self.SI + 1 if self.SI > 0 else self.SI - 1
+        else:
+            print("Индикатор 'ma' or 'ema' не определен")
+            return ValueError
+        return self.SI
 
     def __str__(self):
         return str(self.__dict__)
@@ -1375,6 +1391,10 @@ class StrategiesAnalytics:
                 signal_indicator_list, close_classic_candle_list[
                                        len(close_classic_candle_list) - len(ce_long_and_short_list[0]):
                                        ] if close_classic_candle_list else close_candle_list)
+        elif strategy_name == "ema_cross_ma_strategy":  # !!!!!!
+            ma, ema = self.indicators.return_ma, self.indicators.return_ema
+            close_candle_list = close_candle_list[len(close_candle_list) - len(ma[0]):]
+            return close_candle_list
 
     def chandelier_exit_strategy_analytics_iterator(
             self, analytics_strategy_on_classic_candles: list[CandleArguments],
@@ -1397,12 +1417,24 @@ class StrategiesAnalytics:
 
     @staticmethod
     def chandelier_exit_strategy(
-            signal_indicator, last_and_prev_close: tuple[float],
+            signal_indicator: int, last_and_prev_close: tuple[float],
             ce_long_and_short: tuple[float], previous_ce_long_and_short: tuple[float]
     ):
         if last_and_prev_close[0] > ce_long_and_short[1] and last_and_prev_close[1] < previous_ce_long_and_short[1]:
             signal_indicator = signal_indicator + 1 if signal_indicator > -1 else 1
         elif last_and_prev_close[0] < ce_long_and_short[0] and last_and_prev_close[1] > previous_ce_long_and_short[0]:
+            signal_indicator = signal_indicator - 1 if signal_indicator < 1 else -1
+        else:
+            signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
+        return signal_indicator
+
+    @staticmethod
+    def ema_cross_ma_strategy(
+            signal_indicator: int, last_ma: float, last_ema: float, previous_ma: float, previous_ema: float
+    ):
+        if last_ema > last_ma and previous_ema < previous_ma:
+            signal_indicator = signal_indicator + 1 if signal_indicator > -1 else 1
+        elif last_ema < last_ma and previous_ema > previous_ma:
             signal_indicator = signal_indicator - 1 if signal_indicator < 1 else -1
         else:
             signal_indicator = signal_indicator + 1 if signal_indicator > 0 else signal_indicator - 1
@@ -1465,6 +1497,9 @@ class StrategyAnalyticsResultsEvaluationIterator:
             if self.best_short_average_profit_per_trade_percentage == (
                     short_deals_analytic.average_profit_per_trade_percentage):
                 self.best_short_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
+        self.str_strategy_setting_list = [i["period"] for i in strategy_setting_list]
+        self.long_average_profit_per_trade_percentage_list = long_average_profit_per_trade_percentage_list
+        self.short_average_profit_per_trade_percentage_list = short_average_profit_per_trade_percentage_list
 
     def __str__(self):
         return f"\nИтоги оценки результатов аналитики стратегии:\n" \
@@ -1660,6 +1695,8 @@ class PrintInfo:
                  f"   ▶  Выполнение заявок: {self.settings_info.real_order}\n"
                  f"   ▶  Пропуск первого сигнала: {self.settings_info.first_signal_processing}\n"
                  f"   ▶  Стиль вывода в консоль: {self.settings_info.print_style}\n"
+                 f"   ▶  Показывать график при обновлении свечи: {self.settings_info.plotting}\n"
+                 f"   ▶  Аналитика стратегии: {self.settings_info.strategy_analytics}\n"
                  f"   ▶  Запись логов: {self.settings_info.logging}\n"
                  f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n"
                  f"'*' вызов функции изменения настроек\n"
@@ -1912,6 +1949,21 @@ class MainServices:
         indicators.chandelier_exit(ce_period, ce_factor)
         return StrategiesAnalytics(indicators).strategies_analytics("chandelier_exit_strategy", cl_candle)
 
+    def get_ema_cross_ma_strategy_analytics(
+            self, figi: str, days: int, candle_interval: CandleInterval, candle_type, period: int
+    ):
+        if candle_type == 1:
+            cl_candle = self.get_historical_candles(figi, days, candle_interval, 1)
+            ha_candle = None
+        elif candle_type == 2:
+            cl_candle, ha_candle = self.get_historical_candles(figi, days, candle_interval, "oll")
+        else:
+            cl_candle, ha_candle = self.get_historical_candles(figi, days, candle_interval, "oll")
+        indicators = Indicators(ha_candle if candle_type == 2 else cl_candle)
+        indicators.ma(period)
+        indicators.ema(period)
+        return StrategiesAnalytics(indicators).strategies_analytics("ema_cross_ma_strategy", cl_candle)
+
     @staticmethod
     def request_iterator(figi: str, subscribe_interval: SubscriptionInterval):
         yield MarketDataRequest(
@@ -1933,11 +1985,12 @@ class MainServices:
 
 
 def plotting_mode(services: MainServices):
-    figi = services.find_instrument()[-1]
+    figi, ticker = services.find_instrument(out=("figi", "ticker"))
     candles = services.get_historical_candles(figi, 30, CandleInterval.CANDLE_INTERVAL_5_MIN, 1)
-    close_candles = CandlesInfo(candles).get_only_close_candles()
+    close_candles = CandlesInfo(candles, True).get_only_close_candles()
     candles_numbs = [i for i in range(len(close_candles))]
-    Tools.plotting(candles_numbs, close_candles)
+    Tools.plotting(candles_numbs, close_candles, ticker)
+    raise SystemExit
 
 
 def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strategy_analysis_mode_setting.txt"):
@@ -1958,6 +2011,7 @@ def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strate
     period_range = tuple([int(i) for i in strategy_analysis_mode_setting[4].split(":")])
     factor_range = tuple([float(i) for i in strategy_analysis_mode_setting[5].split(":")])
     factor_step = float(strategy_analysis_mode_setting[6])
+    plotting = bool(int(strategy_analysis_mode_setting[7]))
     input(f"Ваши настройки в режиме анализа стратегии:\n\n"
           f"Количество дней = {days}\n"
           f"Тип свечей для индикатора = {candle_type}\n"
@@ -1965,7 +2019,8 @@ def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strate
           f"Имя стратегии = {name_strategy}\n"
           f"chandelier exit диапазон периода = {period_range}\n"
           f"chandelier exit диапазон множителя = {factor_range}\n"
-          f"chandelier exit шаг множителя = {factor_step}\n\n"
+          f"chandelier exit шаг множителя = {factor_step}\n"
+          f"Вывод графика аналитики = {plotting}\n\n"
           f"Проверьте настройки и нажмите Enter для запуска:")
     figi = services.find_instrument()[-1]
     print("\nПолучение свечей...\n")
@@ -1981,7 +2036,23 @@ def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strate
         analytics_iterator = StrategiesAnalytics(
             indicators).chandelier_exit_strategy_analytics_iterator(
             cl_candle if candle_type == 2 else None, period_range, factor_range, factor_step)
-        print(StrategyAnalyticsResultsEvaluationIterator(*analytics_iterator))
+        strategy_analytics_iterator = StrategyAnalyticsResultsEvaluationIterator(*analytics_iterator)
+        if plotting:
+            Tools.plotting(
+                strategy_analytics_iterator.str_strategy_setting_list,
+                strategy_analytics_iterator.long_average_profit_per_trade_percentage_list,
+                "Long average profit per trade percentage",
+                "Strategy setting",
+                "Profit percentage",
+            )
+            Tools.plotting(
+                strategy_analytics_iterator.str_strategy_setting_list,
+                strategy_analytics_iterator.short_average_profit_per_trade_percentage_list,
+                "Short average profit per trade percentage",
+                "Strategy setting",
+                "Profit percentage",
+            )
+        print(strategy_analytics_iterator)
     else:
         print("Индикатор не определен...")
         indicators = None
@@ -2179,8 +2250,12 @@ def main():
 
         """Аналитика стратегии"""
         if S.strategy_analytics:
-            strategy_analytics = ms.get_chandelier_exit_strategy_analytics(
-                figi, S.days, S.candle_interval, S.candle_type, S.chandelier_exit_length, S.chandelier_exit_factor)
+            if S.strategy_name == 'chandelier_exit_strategy':
+                strategy_analytics = ms.get_chandelier_exit_strategy_analytics(
+                    figi, S.days, S.candle_interval, S.candle_type, S.chandelier_exit_length, S.chandelier_exit_factor)
+            elif S.strategy_name == 'ema_cross_ma_strategy':
+                strategy_analytics = ms.get_ema_cross_ma_strategy_analytics(
+                    figi, S.days, S.candle_interval, S.candle_type, 14)
             PrintInfo.print_strategy_analytics_info(strategy_analytics)
 
         PrintInfo.print_before_starting_the_main_loop(S)
@@ -2219,6 +2294,9 @@ def main():
                 chandelier_exit = indicators.chandelier_exit_plus_one(
                     S.chandelier_exit_length, S.chandelier_exit_factor, chandelier_exit)
                 ema = indicators.ema_plus_one(S.ema_length, ema)
+                if S.plotting:
+                    candles_info = CandlesInfo(candle_list_oll, True)
+                    Tools.plotting(candles_info.get_only_numb_candles(), candles_info.get_only_close_candles())
             if marketdata.last_price:
                 last_price = marketdata.last_price
             if candle == previous_candle and last_price == previous_last_price:
