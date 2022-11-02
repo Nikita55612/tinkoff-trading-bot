@@ -2,7 +2,7 @@
 Тип свечей для индикатора = 2
 Интервал свечей = 1m
 Имя стратегии = chandelier_exit
-chandelier exit диапазон периода = 2:20
-chandelier exit диапазон множителя = 1:3
+chandelier exit диапазон периода = 1:15
+chandelier exit диапазон множителя = 1:4.4
 chandelier exit шаг множителя = 0.1
 Показывать график аналитики = 1

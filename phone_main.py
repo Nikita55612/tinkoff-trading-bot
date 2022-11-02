@@ -1498,6 +1498,8 @@ class StrategyAnalyticsResultsEvaluationIterator:
                     short_deals_analytic.average_profit_per_trade_percentage):
                 self.best_short_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
         self.str_strategy_setting_list = [i["period"] for i in strategy_setting_list]
+        self.long_percent_of_profit_trades_list = long_percent_of_profit_trades_list
+        self.short_percent_of_profit_trades_list = short_percent_of_profit_trades_list
         self.long_average_profit_per_trade_percentage_list = long_average_profit_per_trade_percentage_list
         self.short_average_profit_per_trade_percentage_list = short_average_profit_per_trade_percentage_list
 
@@ -2040,16 +2042,30 @@ def launch_in_strategy_analysis_mode(services: MainServices, path: str = "strate
         if plotting:
             Tools.plotting(
                 strategy_analytics_iterator.str_strategy_setting_list,
+                strategy_analytics_iterator.long_percent_of_profit_trades_list,
+                "Long percent of profit trades",
+                "Period",
+                "Percentage profit trades",
+            )
+            Tools.plotting(
+                strategy_analytics_iterator.str_strategy_setting_list,
+                strategy_analytics_iterator.short_percent_of_profit_trades_list,
+                "Short percent of profit trades",
+                "Period",
+                "Percentage profit trades",
+            )
+            Tools.plotting(
+                strategy_analytics_iterator.str_strategy_setting_list,
                 strategy_analytics_iterator.long_average_profit_per_trade_percentage_list,
                 "Long average profit per trade percentage",
-                "Strategy setting",
+                "Period",
                 "Profit percentage",
             )
             Tools.plotting(
                 strategy_analytics_iterator.str_strategy_setting_list,
                 strategy_analytics_iterator.short_average_profit_per_trade_percentage_list,
                 "Short average profit per trade percentage",
-                "Strategy setting",
+                "Period",
                 "Profit percentage",
             )
         print(strategy_analytics_iterator)
