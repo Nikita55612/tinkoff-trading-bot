@@ -89,6 +89,13 @@ class Tools:
         plt.show()
         print()
 
+    @staticmethod
+    def image_plots(path: str, title: str = "", background_color: tuple[int] = (0, 0, 0)):
+        plt.image_plot(plt.script_folder() + "\\" + path)
+        plt.axes_color(background_color)
+        plt.title(title)
+        plt.show()
+
 
 class SmoothingMethods:
     """Класс методов сглаживания числовых последовательностей"""
