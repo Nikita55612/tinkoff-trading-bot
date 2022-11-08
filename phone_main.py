@@ -1270,6 +1270,8 @@ class StrategiesAnalytics:
                     len([i for i in profit_percentage_given_average_list if i > 0]) / deals_quantity * 100, 2)
                 self.average_profit_per_trade_percentage = round(
                     sum(profit_percentage_list) / len(profit_percentage_list), 2)
+                self.average_profit_per_trade_percentage_ratio_deals_quantity = round(
+                    self.average_profit_per_trade_percentage / deals_quantity, 8)
                 self.average_numb_of_values_in_range = round(
                     sum(numb_of_range_values_list) / len(numb_of_range_values_list))
                 self.average_max_up_percentage = round(sum(max_up_percentage_list) / len(max_up_percentage_list), 2)
@@ -1458,10 +1460,12 @@ class StrategyAnalyticsResultsEvaluationIterator:
         long_risk_index_list = []
         long_average_max_up_percentage_list = []
         long_average_profit_per_trade_percentage_list = []
+        long_average_profit_per_trade_percentage_ratio_deals_quantity_list = []
         short_percent_of_profit_trades_list = []
         short_risk_index_list = []
         short_average_max_up_percentage_list = []
         short_average_profit_per_trade_percentage_list = []
+        short_average_profit_per_trade_percentage_ratio_deals_quantity_list = []
         for iteration_result in iteration_result_list:
             long_deals_analytic = iteration_result.long_deals_analytic
             short_deals_analytic = iteration_result.short_deals_analytic
@@ -1470,19 +1474,27 @@ class StrategyAnalyticsResultsEvaluationIterator:
             long_average_max_up_percentage_list.append(long_deals_analytic.average_max_up_percentage)
             long_average_profit_per_trade_percentage_list.append(
                 long_deals_analytic.average_profit_per_trade_percentage)
+            long_average_profit_per_trade_percentage_ratio_deals_quantity_list.append(
+                long_deals_analytic.average_profit_per_trade_percentage_ratio_deals_quantity)
             short_percent_of_profit_trades_list.append(short_deals_analytic.percent_of_profit_trades)
             short_risk_index_list.append(short_deals_analytic.risk_index)
             short_average_max_up_percentage_list.append(short_deals_analytic.average_max_up_percentage)
             short_average_profit_per_trade_percentage_list.append(
                 short_deals_analytic.average_profit_per_trade_percentage)
+            short_average_profit_per_trade_percentage_ratio_deals_quantity_list.append(
+                short_deals_analytic.average_profit_per_trade_percentage_ratio_deals_quantity)
         self.best_long_percent_of_profit_trades = max(long_percent_of_profit_trades_list)
         self.best_long_risk_index = min(long_risk_index_list)
         self.best_long_average_max_up_percentage = max(long_average_max_up_percentage_list)
         self.best_long_average_profit_per_trade_percentage = max(long_average_profit_per_trade_percentage_list)
+        self.best_long_average_profit_per_trade_percentage_ratio_deals_quantity = \
+            max(long_average_profit_per_trade_percentage_ratio_deals_quantity_list)
         self.best_short_percent_of_profit_trades = max(short_percent_of_profit_trades_list)
         self.best_short_risk_index = min(short_risk_index_list)
         self.best_short_average_max_up_percentage = min(short_average_max_up_percentage_list)
         self.best_short_average_profit_per_trade_percentage = max(short_average_profit_per_trade_percentage_list)
+        self.best_short_average_profit_per_trade_percentage_ratio_deals_quantity = \
+            max(short_average_profit_per_trade_percentage_ratio_deals_quantity_list)
         for n, result_strategies_analytics in enumerate(iteration_result_list):
             long_deals_analytic = result_strategies_analytics.long_deals_analytic
             short_deals_analytic = result_strategies_analytics.short_deals_analytic
@@ -1495,6 +1507,10 @@ class StrategyAnalyticsResultsEvaluationIterator:
             if self.best_long_average_profit_per_trade_percentage == (
                     long_deals_analytic.average_profit_per_trade_percentage):
                 self.best_long_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
+            if self.best_long_average_profit_per_trade_percentage_ratio_deals_quantity == (
+                    long_deals_analytic.average_profit_per_trade_percentage_ratio_deals_quantity):
+                self.best_long_average_profit_per_trade_percentage_ratio_deals_quantity_strategy_setting \
+                    = strategy_setting_list[n]
             if self.best_short_percent_of_profit_trades == short_deals_analytic.percent_of_profit_trades:
                 self.best_short_percent_of_profit_trades_strategy_setting = strategy_setting_list[n]
             if self.best_short_risk_index == short_deals_analytic.risk_index:
@@ -1504,6 +1520,10 @@ class StrategyAnalyticsResultsEvaluationIterator:
             if self.best_short_average_profit_per_trade_percentage == (
                     short_deals_analytic.average_profit_per_trade_percentage):
                 self.best_short_average_profit_per_trade_percentage_strategy_setting = strategy_setting_list[n]
+            if self.best_short_average_profit_per_trade_percentage_ratio_deals_quantity == (
+                    short_deals_analytic.average_profit_per_trade_percentage_ratio_deals_quantity):
+                self.best_short_average_profit_per_trade_percentage_ratio_deals_quantity_strategy_setting \
+                    = strategy_setting_list[n]
         self.str_strategy_setting_list = [i["period"] for i in strategy_setting_list]
         self.long_percent_of_profit_trades_list = long_percent_of_profit_trades_list
         self.short_percent_of_profit_trades_list = short_percent_of_profit_trades_list
@@ -1521,6 +1541,10 @@ class StrategyAnalyticsResultsEvaluationIterator:
                f"значения индикатора: {self.best_long_average_max_up_percentage_strategy_setting}\n" \
                f"Максимальный средний процент прибыли: {self.best_long_average_profit_per_trade_percentage}, " \
                f"значения индикатора: {self.best_long_average_profit_per_trade_percentage_strategy_setting}\n" \
+               f"Лучшее отношение процента прибыли к количеству сделок: " \
+               f"{self.best_long_average_profit_per_trade_percentage_ratio_deals_quantity}, " \
+               f"значения индикатора: " \
+               f"{self.best_long_average_profit_per_trade_percentage_ratio_deals_quantity_strategy_setting}\n" \
                f"\nShort оценка:\n\n" \
                f"Лучший процент прибыльных сделок: {self.best_short_percent_of_profit_trades}, " \
                f"значения индикатора: {self.best_short_percent_of_profit_trades_strategy_setting}\n" \
@@ -1529,7 +1553,11 @@ class StrategyAnalyticsResultsEvaluationIterator:
                f"Максимальный средний процент роста: {self.best_short_average_max_up_percentage}, " \
                f"значения индикатора: {self.best_short_average_max_up_percentage_strategy_setting}\n" \
                f"Максимальный средний процент прибыли: {self.best_short_average_profit_per_trade_percentage}, " \
-               f"значения индикатора: {self.best_short_average_profit_per_trade_percentage_strategy_setting}\n"
+               f"значения индикатора: {self.best_short_average_profit_per_trade_percentage_strategy_setting}\n" \
+               f"Лучшее отношение процента прибыли к количеству сделок: " \
+               f"{self.best_short_average_profit_per_trade_percentage_ratio_deals_quantity}, " \
+               f"значения индикатора: " \
+               f"{self.best_short_average_profit_per_trade_percentage_ratio_deals_quantity_strategy_setting}\n"
 
 
 class PrintInfo:
@@ -2319,7 +2347,10 @@ def main():
                 ema = indicators.ema_plus_one(S.ema_length, ema)
                 if S.plotting:
                     candles_info = CandlesInfo(candle_list_oll, True)
-                    Tools.plotting(candles_info.get_only_numb_candles(), candles_info.get_only_close_candles())
+                    threading.Thread(target=Tools.plotting, name="plotting", kwargs={
+                        'x': candles_info.get_only_numb_candles(),
+                        'y': candles_info.get_only_close_candles(),
+                        "title": instrument_arguments.ticker}).start()
             if marketdata.last_price:
                 last_price = marketdata.last_price
             if candle == previous_candle and last_price == previous_last_price:
